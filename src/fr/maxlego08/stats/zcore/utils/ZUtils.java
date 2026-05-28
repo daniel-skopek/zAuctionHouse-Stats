@@ -3,7 +3,9 @@ package fr.maxlego08.stats.zcore.utils;
 import com.google.common.base.Strings;
 import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 import fr.maxlego08.stats.StatsPlugin;
+import fr.maxlego08.stats.zcore.ZPlugin;
 import fr.maxlego08.stats.zcore.enums.EnumInventory;
 import fr.maxlego08.stats.zcore.enums.Permission;
 import fr.maxlego08.stats.zcore.utils.builder.CooldownBuilder;
@@ -47,11 +49,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Random;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.ThreadLocalRandom;
-import java.util.function.BiConsumer;
+import java.util.concurrent.TimeUnit;
+import java.util.function.Consumer;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -223,15 +224,9 @@ public abstract class ZUtils extends MessageUtils {
      * @param delay
      * @param runnable
      */
-    protected void schedule(long delay, Runnable runnable) {
-        new Timer().schedule(new TimerTask() {
-
-            @Override
-            public void run() {
-                if (runnable != null)
-                    runnable.run();
-            }
-        }, delay);
+    protected void schedule(Plugin plugin, long delay, Runnable runnable) {
+        ZPlugin zPlugin = (ZPlugin) plugin;
+        zPlugin.getFoliaLib().getScheduler().runLaterAsync(runnable, delay, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -303,27 +298,22 @@ public abstract class ZUtils extends MessageUtils {
      * @param runnable
      */
     protected void schedule(Plugin plugin, long delay, int count, Runnable runnable) {
-        new Timer().scheduleAtFixedRate(new TimerTask() {
-            int tmpCount = 0;
-
-            @Override
-            public void run() {
-
-                if (!plugin.isEnabled()) {
-                    this.cancel();
-                    return;
-                }
-
-                if (tmpCount > count) {
-                    this.cancel();
-                    return;
-                }
-
-                tmpCount++;
-                Bukkit.getScheduler().runTask(plugin, runnable);
-
+        ZPlugin zPlugin = (ZPlugin) plugin;
+        final int[] remaining = {count + 1};
+        zPlugin.getFoliaLib().getScheduler().runTimer(wrappedTask -> {
+            if (!plugin.isEnabled()) {
+                wrappedTask.cancel();
+                return;
             }
-        }, 0, delay);
+
+            if (remaining[0] <= 0) {
+                wrappedTask.cancel();
+                return;
+            }
+
+            remaining[0]--;
+            runnable.run();
+        }, 0, delay, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -385,32 +375,27 @@ public abstract class ZUtils extends MessageUtils {
 
     /**
      * @param delay
-     * @param runnable
+     * @param consumer
      */
-    protected TimerTask scheduleFix(Plugin plugin, long delay, BiConsumer<TimerTask, Boolean> consumer) {
-        return this.scheduleFix(plugin, delay, delay, consumer);
+    protected void scheduleFix(Plugin plugin, long delay, Consumer<WrappedTask> consumer) {
+        this.scheduleFix(plugin, delay, delay, consumer);
     }
 
     /**
      * @param plugin
      * @param startAt
      * @param delay
-     * @param runnable
+     * @param consumer
      */
-    protected TimerTask scheduleFix(Plugin plugin, long startAt, long delay, BiConsumer<TimerTask, Boolean> consumer) {
-        TimerTask task = new TimerTask() {
-            @Override
-            public void run() {
-                if (!plugin.isEnabled()) {
-                    cancel();
-                    consumer.accept(this, false);
-                    return;
-                }
-                Bukkit.getScheduler().runTask(plugin, () -> consumer.accept(this, true));
+    protected void scheduleFix(Plugin plugin, long startAt, long delay, Consumer<WrappedTask> consumer) {
+        ZPlugin zPlugin = (ZPlugin) plugin;
+        zPlugin.getFoliaLib().getScheduler().runTimer(wrappedTask -> {
+            if (!plugin.isEnabled()) {
+                wrappedTask.cancel();
+                return;
             }
-        };
-        new Timer().scheduleAtFixedRate(task, startAt, delay);
-        return task;
+            consumer.accept(wrappedTask);
+        }, startAt, delay, TimeUnit.MILLISECONDS);
     }
 
     /**
@@ -863,7 +848,8 @@ public abstract class ZUtils extends MessageUtils {
      * @param runnable
      */
     protected void runAsync(Plugin plugin, Runnable runnable) {
-        Bukkit.getScheduler().runTaskAsynchronously(plugin, runnable);
+        ZPlugin zPlugin = (ZPlugin) plugin;
+        zPlugin.getFoliaLib().getScheduler().runAsync(wrappedTask -> runnable.run());
     }
 
     /**

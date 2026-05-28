@@ -5,6 +5,7 @@ website: https://groupez.dev
 description: Statistic for zAuctionHouse
 version: ${project.version}
 api-version: 1.13
+folia-supported: true
 depend:
   - zAuctionHouseV3
 commands:

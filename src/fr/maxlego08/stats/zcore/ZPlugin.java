@@ -2,6 +2,7 @@ package fr.maxlego08.stats.zcore;
 
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.tcoded.folialib.FoliaLib;
 import fr.maxlego08.stats.StatsPlugin;
 import fr.maxlego08.stats.command.CommandManager;
 import fr.maxlego08.stats.command.VCommand;
@@ -52,6 +53,7 @@ public abstract class ZPlugin extends JavaPlugin {
     private final List<ListenerAdapter> listenerAdapters = new ArrayList<>();
     protected CommandManager commandManager;
     protected ZInventoryManager inventoryManager;
+    private FoliaLib foliaLib;
     private Gson gson;
     private Persist persist;
     private long enableTime;
@@ -70,6 +72,7 @@ public abstract class ZPlugin extends JavaPlugin {
 
         this.gson = getGsonBuilder().create();
         this.persist = new Persist(this);
+        this.foliaLib = new FoliaLib(this);
 
         this.commandManager = new CommandManager((StatsPlugin) this);
         this.inventoryManager = new ZInventoryManager((StatsPlugin) this);
@@ -110,6 +113,9 @@ public abstract class ZPlugin extends JavaPlugin {
     protected void preDisable() {
         this.enableTime = System.currentTimeMillis();
         this.log.log("=== DISABLE START ===");
+        if (this.foliaLib != null) {
+            this.foliaLib.getScheduler().cancelAllTasks();
+        }
     }
 
     protected void postDisable() {
@@ -226,6 +232,13 @@ public abstract class ZPlugin extends JavaPlugin {
      */
     public ZInventoryManager getInventoryManager() {
         return inventoryManager;
+    }
+
+    /**
+     * @return the FoliaLib scheduler instance
+     */
+    public FoliaLib getFoliaLib() {
+        return foliaLib;
     }
 
     protected boolean isEnable(Plugins pl) {

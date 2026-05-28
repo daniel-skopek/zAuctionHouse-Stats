@@ -14,15 +14,16 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
-import java.util.Timer;
-import java.util.TimerTask;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.zip.GZIPOutputStream;
 
 import javax.net.ssl.HttpsURLConnection;
 
+import com.tcoded.folialib.FoliaLib;
+import fr.maxlego08.stats.zcore.ZPlugin;
 import org.bukkit.Bukkit;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
@@ -83,6 +84,9 @@ public class Metrics {
     // The plugin id
     private final int pluginId;
 
+    // FoliaLib instance
+    private final FoliaLib foliaLib;
+
     // A list with all custom charts
     private final List<CustomChart> charts = new ArrayList<>();
 
@@ -100,6 +104,7 @@ public class Metrics {
         }
         this.plugin = plugin;
         this.pluginId = pluginId;
+        this.foliaLib = ((ZPlugin) plugin).getFoliaLib();
 
         // Get the config file
         File bStatsFolder = new File(plugin.getDataFolder().getParentFile(), "bStats");
@@ -183,19 +188,12 @@ public class Metrics {
      * Starts the Scheduler which submits our data every 30 minutes.
      */
     private void startSubmitting() {
-        final Timer timer = new Timer(true); // We use a timer cause the Bukkit scheduler is affected by server lags
-        timer.scheduleAtFixedRate(new TimerTask() {
-            @Override
-            public void run() {
-                if (!plugin.isEnabled()) { // Plugin was disabled
-                    timer.cancel();
-                    return;
-                }
-                // Nevertheless we want our code to run in the Bukkit main thread, so we have to use the Bukkit scheduler
-                // Don't be afraid! The connection to the bStats server is still async, only the stats collection is sync ;)
-                Bukkit.getScheduler().runTask(plugin, () -> submitData());
+        foliaLib.getScheduler().runTimer(() -> {
+            if (!plugin.isEnabled()) {
+                return;
             }
-        }, 1000 * 60 * 5, 1000 * 60 * 30);
+            submitData();
+        }, 1000 * 60 * 5, 1000 * 60 * 30, TimeUnit.MILLISECONDS);
         // Submit the data every 30 minutes, first time after 5 minutes to give other plugins enough time to start
         // WARNING: Changing the frequency has no effect but your plugin WILL be blocked/deleted!
         // WARNING: Just don't do it!

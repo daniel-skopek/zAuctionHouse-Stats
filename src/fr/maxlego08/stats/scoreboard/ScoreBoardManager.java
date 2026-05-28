@@ -4,6 +4,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 
+import com.tcoded.folialib.wrapper.task.WrappedTask;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
@@ -35,18 +36,13 @@ public class ScoreBoardManager extends ZUtils {
 
 		this.isRunning = true;
 
-		scheduleFix(this.plugin, this.schedulerMillisecond, (task, canRun) -> {
-
-			// If the task cannot continue then we do not update the scoreboard
-			if (!canRun)
-				return;
+		scheduleFix(this.plugin, this.schedulerMillisecond, (WrappedTask task) -> {
 
 			if (!this.isRunning) {
 				task.cancel();
 				return;
 			}
 
-			// if the addition of the lines is null then we stop the task
 			if (this.lines == null) {
 				task.cancel();
 				return;
